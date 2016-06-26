@@ -7,9 +7,11 @@
 #include <time.h>
 
 void print_stat(struct stat buf){
-	printf ("\n\t acesso: %s \
+	printf ("\n\t inode: %lld \
+		 \n\t acesso: %s \
 	 modif:  %s \
 	 status: %s ",
+		(long long) buf.st_ino,
 		ctime(&buf.st_atime),
 		ctime(&buf.st_mtime),
 		ctime(&buf.st_ctime));

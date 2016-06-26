@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
     struct stat backup_buf;
 
     n = scandir("./PASTA", &namelist, NULL, alphasort);
-    system("mkdir BACKUP_PASTA");
+    mkdir("BACKUP_PASTA", 0777);
     system("cp -R -f ./PASTA/. BACKUP_PASTA");
     m = scandir("BACKUP_PASTA", &backup_list, NULL, alphasort);
 

@@ -8,8 +8,13 @@
 #include <string.h>
 #include <strings.h>
 #include <fcntl.h>
+#include <pthread.h>
+
 #define FILE_NAME_SIZE 512
-int copy_file(char *origem, char *backup_path) {
+
+char backup_path[] = "../BACKUP/";
+
+int copy_file(char *origem) {
 	int fd_o, fd_d;
 	char destino[FILE_NAME_SIZE];
 	fd_o = open(origem, O_RDONLY);
@@ -57,7 +62,14 @@ int copy_file(char *origem, char *backup_path) {
 	}while(nr > 0);
 	close(fd_o);
 	close(fd_d);
-	return 0;
+	return 1;
+}
+
+void *thread_copia(void *args) {
+	int *s;
+	s = (int *)calloc(1, sizeof(int));
+	*s = copy_file((char *)args);
+	pthread_exit(s);
 }
 
 void print_stat(struct stat buf){
@@ -91,7 +103,7 @@ int create_backup(char *backup_path){
 }
 
 int create_backup_b(char *argv){
-    int s;
+    //int s;
     // Não consegui implementar uma função que crie o BACKUP no diretorio ../
     // quando o diretorio é passado por parametro,
     // então vou criar ele no /BACKUP
@@ -100,7 +112,7 @@ int create_backup_b(char *argv){
     return 0;
 }
 
-int busca(char *filename, char *backup_path){
+int busca(char *filename){
     struct dirent **backuplist;
     int n, i;
 
@@ -125,19 +137,18 @@ int busca(char *filename, char *backup_path){
     return 0;
 }
 
+#define MAX_T 10
 int main(int argc, char **argv) {
     struct dirent **namelist;
     struct dirent **backuplist;
-    int n, i, s, t, b;
+    int n, i, b, j = 0;
+    pthread_t tid[MAX_T];
     struct stat buf;
-    struct stat backup_buf;
-    char backup_path[] = "../BACKUP/";
-    char backup_file[] = "../BACKUP/";
 
     if (argc == 1) {
         n = scandir(".", &namelist, NULL, alphasort);
-        s = create_backup(backup_path);
-        t = scandir(backup_path, &backuplist, NULL, alphasort);
+        create_backup(backup_path);
+        scandir(backup_path, &backuplist, NULL, alphasort);
     } else {
         n = scandir(argv[1], &namelist, NULL, alphasort);
     //    s = create_backup_b(argv[1]);
@@ -149,12 +160,13 @@ int main(int argc, char **argv) {
         i = 2;
         while (i < n) {
             stat(namelist[i]->d_name, &buf);
-            b = busca(namelist[i]->d_name, backup_path);
+            b = busca(namelist[i]->d_name);
             if(b < 0){
                 perror("busca()");
             }
             else if(b == 0){
-                copy_file(namelist[i]->d_name, backup_path);
+                pthread_create(&tid[j], NULL, &thread_copia, &namelist[i]->d_name);
+                j++;
             }
 //            if(i < t){
 //                printf("\n\\/--------------------BACKUP--------------------------\\/\n");

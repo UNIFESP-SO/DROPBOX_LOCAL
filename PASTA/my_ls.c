@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
                 perror("busca()");
             }
             else if(b == 0){
-                pthread_create(&tid[j], NULL, &thread_copia, &namelist[i]->d_name);
+                pthread_create(NULL, NULL, &thread_copia, &namelist[i]->d_name);
                 j++;
             }
 //            if(i < t){

@@ -1,3 +1,0 @@
-# DROPBOX_LOCAL
-
-asdasdasd

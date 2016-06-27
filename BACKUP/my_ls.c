@@ -7,6 +7,58 @@
 #include <time.h>
 #include <string.h>
 #include <strings.h>
+#include <fcntl.h>
+#define FILE_NAME_SIZE 512
+int copy_file(char *origem, char *backup_path) {
+	int fd_o, fd_d;
+	char destino[FILE_NAME_SIZE];
+	fd_o = open(origem, O_RDONLY);
+	if (fd_o == -1) {
+		perror("open()");
+		return 0;
+	}
+	strcpy(destino, backup_path);
+    strcat(destino, origem);
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+	fd_d = open(destino, O_CREAT | O_RDWR | O_APPEND, mode);
+	if(fd_d == -1) {
+		perror("open()");
+		close(fd_o);
+		return 0;
+	}
+#define BLOCO 4096
+	int nr, ns, nw, n;
+	unsigned char buffer[BLOCO];
+	void *ptr_buff;
+	do {
+		nr = read(fd_o, buffer, BLOCO);
+		if (nr == -1) {
+			perror("read()");
+			close(fd_o);
+			close(fd_d);
+			return 0;
+		}
+		else if (nr > 0) {
+			ptr_buff = buffer;
+			nw = nr;
+			ns = 0;
+			do {
+				n = write(fd_d, ptr_buff + ns, nw);
+				if (n == -1) {
+					perror("write()");
+                	        	close(fd_o);
+	        	                close(fd_d);
+		                        return 0;
+				}
+				ns += n;
+				nw -= n;
+			} while (nw > 0);
+		}
+	}while(nr > 0);
+	close(fd_o);
+	close(fd_d);
+	return 0;
+}
 
 void print_stat(struct stat buf){
 	printf ("\n\t inode: %lld \
@@ -43,42 +95,40 @@ int create_backup_b(char *argv){
     // Não consegui implementar uma função que crie o BACKUP no diretorio ../
     // quando o diretorio é passado por parametro,
     // então vou criar ele no /BACKUP
-    mkdir("/BACKUP", 0777);
+    mkdir("/BACKUP", 7777);
 
     return 0;
 }
 
-int busca(struct stat buf, char *backup_path){
+int busca(char *filename, char *backup_path){
     struct dirent **backuplist;
-    struct stat buf_b;
     int n, i;
 
     n = scandir(backup_path, &backuplist, NULL, alphasort);
 
-    if (n < 0)
+    if (n < 0){
         perror("scandir()");
+        return -1;
+    }
     else {
-        i = 0;
+        i = 2;
         while (i < n) {
-            stat(backuplist[i]->d_name, &buf_b);
-            printf("\nBACKUP->%s", backuplist[i]->d_name);
-            printf(" --> %lld ", (long long)backuplist[i]->d_ino);
-            print_stat(buf_b);
-            if(buf.st_ino == buf_b.st_ino){
-                if(ctime(&buf.st_mtime) != ctime(&buf_b.st_mtime))
-                    printf("\nMODIFICADO\n");
+            if(!strcmp(filename, backuplist[i]->d_name)){
+                free(backuplist[i]);
+                free(backuplist);
+                return 1;
             }
-            //check()
             free(backuplist[i]);
             i++;
         }
     }
+    return 0;
 }
 
 int main(int argc, char **argv) {
     struct dirent **namelist;
     struct dirent **backuplist;
-    int n, i, s, t;
+    int n, i, s, t, b;
     struct stat buf;
     struct stat backup_buf;
     char backup_path[] = "../BACKUP/";
@@ -96,29 +146,31 @@ int main(int argc, char **argv) {
     if (n < 0)
         perror("scandir()");
     else {
-        i = 0;
+        i = 2;
         while (i < n) {
             stat(namelist[i]->d_name, &buf);
-            printf("%s", namelist[i]->d_name);
-            printf(" - %lld\n", (long long)namelist[i]->d_ino);
-            print_type_name(namelist[i]->d_type);
-            print_stat(buf);
-
-            if(i < t){
-                printf("\n\\/--------------------BACKUP--------------------------\\/\n");
-                strcat(backup_file, backuplist[i]->d_name);
-                printf("\nbackup_file = %s\n", backup_file);
-                stat(backup_file, &backup_buf);
-                printf("%s", backuplist[i]->d_name);
-                printf(" - %lld\n", (long long)backuplist[i]->d_ino);
-                print_type_name(backuplist[i]->d_type);
-                print_stat(backup_buf);
-                strcpy(backup_file, backup_path);
-
-                printf("\nbackup_file final = %s\n", backup_file);
-                printf("\n/\\----------------------------------------------/\\\n");
-                free(backuplist[i]);
+            b = busca(namelist[i]->d_name, backup_path);
+            if(b < 0){
+                perror("busca()");
             }
+            else if(b == 0){
+                copy_file(namelist[i]->d_name, backup_path);
+            }
+//            if(i < t){
+//                printf("\n\\/--------------------BACKUP--------------------------\\/\n");
+//                strcat(backup_file, backuplist[i]->d_name);
+//                printf("\nbackup_file = %s\n", backup_file);
+//                stat(backup_file, &backup_buf);
+//                printf("%s", backuplist[i]->d_name);
+//                printf(" - %lld\n", (long long)backuplist[i]->d_ino);
+//                print_type_name(backuplist[i]->d_type);
+//                print_stat(backup_buf);
+//                strcpy(backup_file, backup_path);
+//
+//                printf("\nbackup_file final = %s\n", backup_file);
+//                printf("\n/\\----------------------------------------------/\\\n");
+//                free(backuplist[i]);
+//            }
 
             free(namelist[i]);
             i++;

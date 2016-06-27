@@ -7,6 +7,58 @@
 #include <time.h>
 #include <string.h>
 #include <strings.h>
+#include <fcntl.h>
+#define FILE_NAME_SIZE 512
+int copy_file(char *origem, char *backup_path) {
+	int fd_o, fd_d;
+	char destino[FILE_NAME_SIZE];
+	fd_o = open(origem, O_RDONLY);
+	if (fd_o == -1) {
+		perror("open()");
+		return 0;
+	}
+	strcpy(destino, backup_path);
+    strcat(destino, origem);
+	mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+	fd_d = open(destino, O_CREAT | O_RDWR | O_APPEND, mode);
+	if(fd_d == -1) {
+		perror("open()");
+		close(fd_o);
+		return 0;
+	}
+#define BLOCO 4096
+	int nr, ns, nw, n;
+	unsigned char buffer[BLOCO];
+	void *ptr_buff;
+	do {
+		nr = read(fd_o, buffer, BLOCO);
+		if (nr == -1) {
+			perror("read()");
+			close(fd_o);
+			close(fd_d);
+			return 0;
+		}
+		else if (nr > 0) {
+			ptr_buff = buffer;
+			nw = nr;
+			ns = 0;
+			do {
+				n = write(fd_d, ptr_buff + ns, nw);
+				if (n == -1) {
+					perror("write()");
+                	        	close(fd_o);
+	        	                close(fd_d);
+		                        return 0;
+				}
+				ns += n;
+				nw -= n;
+			} while (nw > 0);
+		}
+	}while(nr > 0);
+	close(fd_o);
+	close(fd_d);
+	return 0;
+}
 
 void print_stat(struct stat buf){
 	printf ("\n\t inode: %lld \
@@ -50,8 +102,6 @@ int create_backup_b(char *argv){
 
 int busca(char *filename, char *backup_path){
     struct dirent **backuplist;
-    char backup_file[256];
-    strcpy(backup_file, backup_path);
     int n, i;
 
     n = scandir(backup_path, &backuplist, NULL, alphasort);
@@ -68,10 +118,8 @@ int busca(char *filename, char *backup_path){
                 free(backuplist);
                 return 1;
             }
-
             free(backuplist[i]);
             i++;
-            strcpy(backup_path, backup_file);
         }
     }
     return 0;
@@ -80,7 +128,7 @@ int busca(char *filename, char *backup_path){
 int main(int argc, char **argv) {
     struct dirent **namelist;
     struct dirent **backuplist;
-    int n, i, s, t;
+    int n, i, s, t, b;
     struct stat buf;
     struct stat backup_buf;
     char backup_path[] = "../BACKUP/";
@@ -101,8 +149,13 @@ int main(int argc, char **argv) {
         i = 2;
         while (i < n) {
             stat(namelist[i]->d_name, &buf);
-            busca(namelist[i]->d_name, backup_path);
-//
+            b = busca(namelist[i]->d_name, backup_path);
+            if(b < 0){
+                perror("busca()");
+            }
+            else if(b == 0){
+                copy_file(namelist[i]->d_name, backup_path);
+            }
 //            if(i < t){
 //                printf("\n\\/--------------------BACKUP--------------------------\\/\n");
 //                strcat(backup_file, backuplist[i]->d_name);

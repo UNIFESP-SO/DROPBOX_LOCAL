@@ -140,15 +140,30 @@ int busca(char *filename){
 #define MAX_T 10
 int main(int argc, char **argv) {
     struct dirent **namelist;
-    struct dirent **backuplist;
-    int n, i, b, j = 0;
+
+    struct dirent **list;
+    int m, n, i, b, j = 0;
     pthread_t tid[MAX_T];
     struct stat buf;
 
     if (argc == 1) {
         n = scandir(".", &namelist, NULL, alphasort);
-        create_backup(backup_path);
-        scandir(backup_path, &backuplist, NULL, alphasort);
+        m = scandir("..", &list, NULL, alphasort);
+        i = 0;
+        while(i < m){
+            if(!strcmp(list[i]->d_name, "BACKUP"))
+                break;
+            else{
+                if(i == (m - 1)){
+                    create_backup(backup_path);
+                    i++;
+                }
+                else{
+                    i++;
+                    continue;
+                }
+            }
+        }
     } else {
         n = scandir(argv[1], &namelist, NULL, alphasort);
     //    s = create_backup_b(argv[1]);
@@ -165,30 +180,16 @@ int main(int argc, char **argv) {
                 perror("busca()");
             }
             else if(b == 0){
-                pthread_create(NULL, NULL, &thread_copia, &namelist[i]->d_name);
+                pthread_create(tid, NULL, &thread_copia, &namelist[i]->d_name);
                 j++;
             }
-//            if(i < t){
-//                printf("\n\\/--------------------BACKUP--------------------------\\/\n");
-//                strcat(backup_file, backuplist[i]->d_name);
-//                printf("\nbackup_file = %s\n", backup_file);
-//                stat(backup_file, &backup_buf);
-//                printf("%s", backuplist[i]->d_name);
-//                printf(" - %lld\n", (long long)backuplist[i]->d_ino);
-//                print_type_name(backuplist[i]->d_type);
-//                print_stat(backup_buf);
-//                strcpy(backup_file, backup_path);
-//
-//                printf("\nbackup_file final = %s\n", backup_file);
-//                printf("\n/\\----------------------------------------------/\\\n");
-//                free(backuplist[i]);
-//            }
+            else{
 
+            }
             free(namelist[i]);
             i++;
         }
         free(namelist);
-        free(backuplist);
     }
     return 0;
 }
